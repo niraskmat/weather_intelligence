@@ -124,6 +124,7 @@ async def analyze_correlations(
     Supports multiple detection algorithms:
     - MAD (Median Absolute Deviation) - robust to outliers
     - Z-Score - standard deviation based detection
+    - IQR - Interquartile range based detection
 
     Returns detected anomalies with timestamps, values, and anomaly scores.
     """

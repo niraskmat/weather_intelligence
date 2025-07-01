@@ -364,7 +364,7 @@ class VisualizationEngine(WeatherAnalyzer):
             fig = decomp.plot()
 
             # Add overall title
-            fig.suptitle(f"Seasonal Decomposition: {col}", fontsize=16, fontweight='bold')
+            #fig.suptitle(f"Seasonal Decomposition: {col}", fontsize=16, fontweight='bold')
 
             # Reset matplotlib parameters
             plt.rcdefaults()
