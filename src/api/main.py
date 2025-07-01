@@ -176,7 +176,7 @@ logger.info("CORS middleware configured successfully")
 # ============ UTILITY FUNCTIONS ============
 
 def load_sample_data() -> pd.DataFrame:
-    df = pd.read_json("../../data/environmental_sensor_data.json")
+    df = pd.read_json("data/environmental_sensor_data.json")
     df["timestamp"] = pd.to_datetime(df["timestamp"])
     df = df.set_index("timestamp")
     return df
