@@ -1,0 +1,5 @@
+# pycharm stuff
+.idea/
+__pycache__/
+.env
+*.html
