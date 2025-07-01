@@ -68,15 +68,15 @@ class WeatherAnalyzer:
         self.df = data.copy()
         self.residuals = {}
         self.decomposition = {}
+        self.found_periods = {}
 
         logger.info("identifying frequencies with Fourier analysis")
-        found_periods = {}
         for col in ["temperature_c", "humidity_percent", "air_pressure_hpa"]:
             fft_result = self.identify_cycles(self.df[col].copy())
-            found_periods[col] = fft_result.period_full_days_in_hours.to_list()
+            self.found_periods[col] = fft_result.period_full_days_in_hours.to_list()
 
         # Process each weather parameter according to configuration
-        for col, periods in found_periods.items():
+        for col, periods in self.found_periods.items():
             logger.info("Processing column: %s with periods: %s", col, periods)
             self.get_clean_data(col, periods=periods)
 
@@ -189,7 +189,7 @@ class WeatherAnalyzer:
         """
         logger.info("Analyzing trends for column: %s", col)
 
-        periods = config[col]
+        periods = self.found_periods[col]
         decomp = self.decomposition[f"{col}_filled"]
         trends = {}
         patterns = []
