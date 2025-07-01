@@ -106,24 +106,24 @@ async def get_timeseries_data(
         start_date: Optional[date] = Query(
             None,
             description="Start date for filtering (YYYY-MM-DD format). If not provided, returns data from beginning.",
-            example="2024-01-01"
+            examples=["2024-01-01"]
         ),
         end_date: Optional[date] = Query(
             None,
             description="End date for filtering (YYYY-MM-DD format). If not provided, returns data until end.",
-            example="2024-12-31"
+            examples=["2024-12-31"]
         ),
         parameter: Optional[str] = Query(
             None,
             description="Specific parameter to filter (temperature_c, humidity_percent, air_pressure_hpa). If not provided, returns all parameters.",
-            example="temperature_c"
+            examples=["temperature_c"]
         ),
         limit: Optional[int] = Query(
             None,
             description="Maximum number of records to return. If not provided, returns all matching records.",
             ge=1,
             le=10000,
-            example=1000
+            examples=[1000]
         ),
         analyzer: WeatherAnalyzer = Depends(get_analyzer)
 ) -> TimeSeriesResponse:

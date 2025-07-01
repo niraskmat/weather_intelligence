@@ -438,7 +438,7 @@ class WeatherAnalyzer:
 
         Args:
             col (str): Weather parameter column name
-            method (str): Anomaly detection method ('mad' or 'z_score')
+            method (str): Anomaly detection method ('mad', 'z_score', or "IQR")
             threshold (float, optional): Custom threshold. If None, uses 99.84th percentile
 
         Returns:
@@ -461,16 +461,44 @@ class WeatherAnalyzer:
             # Standard Z-score method
             scores = np.abs((residuals - np.mean(residuals)) / np.std(residuals))
             logger.debug("Using Z-score method")
+        elif method == 'iqr':
+            # Interquartile Range method - Traditional approach
+            Q1 = residuals.quantile(0.25)
+            Q3 = residuals.quantile(0.75)
+            IQR = Q3 - Q1
+
+            # Set default threshold for IQR (typically 1.5 for outliers, 3.0 for extreme outliers)
+            if threshold is None:
+                threshold = 2.5
+                logger.debug("Using default IQR threshold: %.1f", threshold)
+
+            # Calculate bounds
+            lower_bound = Q1 - threshold * IQR
+            upper_bound = Q3 + threshold * IQR
+
+            # Calculate scores (how far beyond bounds, normalized by IQR)
+            scores = np.maximum(
+                (lower_bound - residuals) / IQR,  # How far below lower bound
+                (residuals - upper_bound) / IQR  # How far above upper bound
+            )
+
+            # Ensure non-negative scores (points within bounds get score = 0)
+            scores = np.maximum(scores, 0)
+            logger.debug("Using IQR method - Q1: %.3f, Q3: %.3f, IQR: %.3f, bounds: [%.3f, %.3f]",
+                         Q1, Q3, IQR, lower_bound, upper_bound)
         else:
             raise ValueError(f"Unknown anomaly detection method: {method}")
 
         # Set threshold if not provided
         if threshold is None:
-            threshold = np.percentile(scores, 99.84)  # Approximately 3-sigma equivalent
+            threshold = np.percentile(scores, 99.84)
             logger.debug("Auto-calculated threshold: %.3f", threshold)
 
         # Identify anomalies above threshold
-        anomalies = scores > threshold
+        if method == "iqr":
+            anomalies = scores > 0
+        else:
+            anomalies = scores > threshold
         anomalies = anomalies.loc[anomalies]
 
         # Create detailed anomalies dataframe

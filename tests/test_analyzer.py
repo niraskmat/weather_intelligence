@@ -4,17 +4,27 @@ import pytest
 
 from src.analysis_engine import WeatherAnalyzer
 
-
-def test_get_anomalies(sample_dataframe: pd.DataFrame) -> None:
+@pytest.mark.parametrize("method", [
+    "mad", "z_score", "iqr"
+])
+def test_get_anomalies(sample_dataframe: pd.DataFrame, method: str) -> None:
     # Initialize analyzer with sample data containing known anomalies
     analyzer = WeatherAnalyzer(sample_dataframe)
 
-    # Detect anomalies using MAD method with threshold of 5
-    anomalies, threshold = analyzer.get_anomalies(
-        col="temperature_c",
-        method="mad",
-        threshold=5
-    )
+    # Detect anomalies
+    if method == "mad":
+        # Using MAD method with threshold of 5
+        anomalies, threshold = analyzer.get_anomalies(
+            col="temperature_c",
+            method=method,
+            threshold=5
+        )
+    else:
+        # Using z-score or iqr with default threshold
+        anomalies, threshold = analyzer.get_anomalies(
+            col="temperature_c",
+            method=method,
+        )
 
     # Verify anomalies were detected
     assert not anomalies.empty, "No anomalies detected when anomalies should be present"
@@ -140,7 +150,7 @@ def test_fit_distributions_valid(sample_dataframe: pd.DataFrame) -> None:
     "humidity_percent",
     "air_pressure_hpa"
 ])
-def test_identify_cycles(sample_dataframe: pd.DataFrame, parameter) -> None:
+def test_identify_cycles(sample_dataframe: pd.DataFrame, parameter: str) -> None:
     # Initialize analyzer with sample data containing known anomalies
     analyzer = WeatherAnalyzer(sample_dataframe)
 
