@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import pytest
 
 from src.analysis_engine import WeatherAnalyzer
 
@@ -132,3 +133,31 @@ def test_fit_distributions_valid(sample_dataframe: pd.DataFrame) -> None:
     # Verify statistical validity
     assert 0 <= ks_stat <= 1, f"KS statistic should be between 0 and 1, got {ks_stat}"
     assert 0 <= p_value <= 1, f"P-value should be between 0 and 1, got {p_value}"
+
+
+@pytest.mark.parametrize("parameter", [
+    "temperature_c",
+    "humidity_percent",
+    "air_pressure_hpa"
+])
+def test_identify_cycles(sample_dataframe: pd.DataFrame, parameter) -> None:
+    # Initialize analyzer with sample data containing known anomalies
+    analyzer = WeatherAnalyzer(sample_dataframe)
+
+    # run Fourier analysis to get periods
+    results = analyzer.identify_cycles(sample_dataframe[parameter])
+
+    # Verify return type and structure
+    assert isinstance(results, pd.DataFrame), "Should be DataFrame"
+    assert not results.empty, "No cycles detected when cycles should be present"
+
+    # Verify correct periods are found
+    if parameter in ["temperature_c", "humidity_percent"]:
+        period = results["period_full_days_in_hours"].to_list()[0]
+        assert results["period_full_days_in_hours"].to_list()[0] == 24, f"Period should be 24 hours, got {period}"
+    elif parameter in ["air_pressure_hpa"]:
+        period1 = results["period_full_days_in_hours"].to_list()[0]
+        period2 = results["period_full_days_in_hours"].to_list()[1]
+        assert results["period_full_days_in_hours"].to_list()[0] == 48, f"Period should be 48 hours, got {period1}"
+        assert results["period_full_days_in_hours"].to_list()[1] == 168, f"Period should be 168 hours, got {period2}"
+

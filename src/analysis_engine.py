@@ -14,6 +14,8 @@ import pandas as pd
 import numpy as np
 import logging
 from scipy import stats
+from scipy.fft import fft, fftfreq
+from scipy.signal import find_peaks
 from statsmodels.tsa.seasonal import STL, MSTL
 from statsmodels.robust.scale import mad
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -22,15 +24,6 @@ from src.cache import memory
 
 # Configure logging
 logger = logging.getLogger(__name__)
-
-# Configuration for different weather parameters and their seasonal periods
-# Each parameter has associated periods for decomposition (in hours)
-# TODO get periods from FFT analysis
-config = {
-    "temperature_c": [24],  # Daily cycle
-    "humidity_percent": [24],  # Daily cycle
-    "air_pressure_hpa": [24 * 2, 24 * 7]  # 2-day and weekly cycles
-}
 
 
 class WeatherAnalyzer:
@@ -54,9 +47,12 @@ class WeatherAnalyzer:
     def __init__(self, data: pd.DataFrame) -> None:
         """
         Initialize the WeatherAnalyzer with weather data.
-        adds _cl version of each parameter to self.df which is the observed data with anomalies removed.
-        adds _filled version of each parameter self.df which is the _cl data with all missing data points imputed.
 
+        - Performs Fourier analysis to identify cycles.
+        - Performs STL/MSTL to identify patterns and residuals. Residuals are used to identify and remove anomalies.
+        - Missing data is imputed using patterns from STL/MSTL to reconstruct the missing data points.
+        - Adds _cl version of each parameter to self.df which is the observed data with anomalies removed.
+        - Adds _filled version of each parameter self.df which is the _cl data with all missing data points imputed.
 
         Args:
             data (pd.DataFrame): Weather dataset with timestamp index and columns:
@@ -73,12 +69,19 @@ class WeatherAnalyzer:
         self.residuals = {}
         self.decomposition = {}
 
+        logger.info("identifying frequencies with Fourier analysis")
+        found_periods = {}
+        for col in ["temperature_c", "humidity_percent", "air_pressure_hpa"]:
+            fft_result = self.identify_cycles(self.df[col].copy())
+            found_periods[col] = fft_result.period_full_days_in_hours.to_list()
+
         # Process each weather parameter according to configuration
-        for col, periods in config.items():
+        for col, periods in found_periods.items():
             logger.info("Processing column: %s with periods: %s", col, periods)
             self.get_clean_data(col, periods=periods)
 
         logger.info("WeatherAnalyzer initialization complete")
+
 
     def fit_distributions(self, col: str,
                           dist_names: Optional[List[str]] = None) -> List[Tuple[str, float, float, Tuple]]:
@@ -575,6 +578,118 @@ class WeatherAnalyzer:
 
         return self.df, res
 
+    def identify_cycles(self, observed_data: Union[pd.Series, np.ndarray]) -> pd.DataFrame:
+        """
+        Identify dominant cyclical patterns in time series data using Fast Fourier Transform (FFT).
+
+        This method performs frequency domain analysis to detect repeating patterns in environmental
+        sensor data such as daily temperature cycles, weekly pressure variations, etc. It uses FFT
+        to transform the time series into the frequency domain, identifies significant peaks in the
+        magnitude spectrum, and converts these back to time periods.
+
+        The analysis workflow:
+        1. Detrend the data by removing the mean
+        2. Apply FFT to convert to frequency domain
+        3. Filter to positive frequencies only (remove mirror frequencies)
+        4. Detect peaks in the magnitude spectrum above a threshold
+        5. Convert dominant frequencies back to time periods
+        6. Round periods to full days and remove duplicates
+
+        Args:
+            observed_data (Union[pd.Series, np.ndarray]): Time series data with hourly observations.
+                Should contain numeric values representing sensor measurements over time.
+                Missing values should be handled before calling this method.
+
+        Returns:
+            pd.DataFrame: DataFrame containing identified cyclical patterns with columns:
+                - 'period_hours' (float): Exact period length in hours
+                - 'freq_hr' (float): Frequency in cycles per hour
+                - 'amplitude' (float): Magnitude of the frequency component (strength of cycle)
+                - 'period_full_days_in_hours' (int): Period rounded to nearest full day(s) in hours
+
+                Sorted by amplitude (strongest cycles first) with duplicates removed.
+
+        Raises:
+            ValueError: If observed_data is empty or contains only NaN values
+            TypeError: If observed_data is not a numeric array-like object
+
+        Notes:
+            - Assumes hourly time steps (time_step_hours = 1)
+            - Peak detection threshold is set to 10% of maximum amplitude
+            - Periods are rounded to full days to identify standard meteorological cycles
+            - Only positive frequencies are considered (negative frequencies are redundant)
+            - The method works best with data spanning multiple complete cycles
+        """
+        # Validate input data
+        if len(observed_data) == 0:
+            raise ValueError("Input data cannot be empty")
+
+        # Convert to numpy array if pandas Series for consistent handling
+        if isinstance(observed_data, pd.Series):
+            data_array = observed_data.values
+        else:
+            data_array = np.asarray(observed_data)
+
+        # Check for all NaN values
+        if np.all(np.isnan(data_array)):
+            raise ValueError("Input data contains only NaN values")
+
+        # Remove NaN values for FFT analysis
+        clean_data = data_array[~np.isnan(data_array)]
+
+        N = len(clean_data)
+        time_step_hours = 1  # Hourly data assumption
+
+        # ============ FAST FOURIER TRANSFORM ============
+        # Detrend by removing mean to focus on cyclical variations
+        yf = fft(clean_data - clean_data.mean())
+
+        # Generate frequency array (cycles per hour)
+        xf = fftfreq(N, time_step_hours)
+
+        # ============ FREQUENCY DOMAIN ANALYSIS ============
+        # Consider only positive frequencies to avoid redundant negative frequency components
+        pos_mask = xf > 0
+        xf = xf[pos_mask]
+        yf_magnitude = np.abs(yf[pos_mask])  # Take magnitude of complex FFT result
+
+        # ============ PEAK DETECTION ============
+        # Find peaks in magnitude spectrum that represent significant cyclical patterns
+        # Threshold set to 10% of maximum amplitude to filter out noise
+        peak_threshold = np.max(yf_magnitude) * 0.1
+        peaks, _ = find_peaks(yf_magnitude, height=peak_threshold)
+
+        # Extract dominant frequencies and their corresponding amplitudes
+        dominant_freqs = xf[peaks]
+        dominant_amps = yf_magnitude[peaks]
+
+        # Convert frequencies (cycles/hour) to periods (hours/cycle)
+        dominant_periods = 1 / dominant_freqs
+
+        # Round periods to full days for meteorological interpretation
+        # This helps identify standard cycles like daily (24h), weekly (168h), etc.
+        periods_full_days = np.round(dominant_periods / 24)
+        periods_full_days_hours = periods_full_days * 24
+
+        # ============ CREATE RESULTS DATAFRAME ============
+        periods_df = pd.DataFrame({
+            'period_hours': dominant_periods,  # Exact period in hours
+            'freq_hr': dominant_freqs,  # Frequency in cycles per hour
+            'amplitude': dominant_amps,  # Strength of cyclical pattern
+            "period_full_days_in_hours": periods_full_days_hours,  # Rounded to full days
+        })
+
+        # Sort by amplitude (strongest cycles first) for easier interpretation
+        periods_df = periods_df.sort_values(by='amplitude', ascending=False)
+
+        # Convert to integer for cleaner output and remove duplicates
+        periods_df["period_full_days_in_hours"] = periods_df["period_full_days_in_hours"].astype(int)
+
+        # Remove duplicate periods (keeps the one with highest amplitude due to sorting)
+        periods_df = periods_df.drop_duplicates(subset="period_full_days_in_hours")
+
+        return periods_df
+
 
 @memory.cache
 def fit_distributions_cached(
@@ -777,8 +892,12 @@ if __name__ == "__main__":
     df["timestamp"] = pd.to_datetime(df["timestamp"])
     df = df.set_index("timestamp")
 
-    # Initialize analyzer (performs automatic cleaning)
+    # Initialize analyzer
     weather_analyzer = WeatherAnalyzer(df)
+    cols = ["temperature_c", "humidity_percent", "air_pressure_hpa"]
+    for col in cols:
+        dft = df.dropna(subset=[col]).copy()
+        periods = weather_analyzer.identify_cycles(dft[col])
     summary = weather_analyzer.get_data_summary()
     anomalies = weather_analyzer.get_anomalies("temperature_c")
     trends = weather_analyzer.get_trends("temperature_c")
