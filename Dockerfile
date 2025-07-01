@@ -32,7 +32,7 @@ EXPOSE 8000
 ENV LOG_LEVEL=INFO
 ENV DATA_SEED=42
 #ENV ANALYSIS_WINDOW_DAYS=30
-ENV CACHE_RESULTS=false
+ENV CACHE_RESULTS=True
 
 # Run the FastAPI app with uvicorn
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
