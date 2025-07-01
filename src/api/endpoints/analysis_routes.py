@@ -69,7 +69,9 @@ async def analyze_correlations(
     try:
         # Calculate correlation matrix using the specified method
         logger.debug("Computing correlation matrix from analyzer")
-        correlation_results = analyzer.get_correlation_matrix(method=request.method)
+        correlation_results = analyzer.get_correlation_matrix(method=request.method,
+                                                              lag=request.lag,
+                                                              lag_column=request.lag_column)
 
         logger.debug(f"Correlation matrix shape: {correlation_results.shape}")
         logger.debug(f"Correlation matrix:\n{correlation_results}")
@@ -98,7 +100,9 @@ async def analyze_correlations(
         # Construct and return the response
         response = CorrelationResponse(
             correlation_matrix=correlation_data,
-            method_used=request.method
+            method_used=request.method,
+            lag=request.lag,
+            lag_column=request.lag_column
         )
 
         logger.info(f"Correlation analysis completed successfully using {request.method} method")

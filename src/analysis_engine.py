@@ -117,12 +117,13 @@ class WeatherAnalyzer:
         logger.info("Best distribution fit: %s with params: %s", dist_name, params)
         return dist_name, params
 
-    def get_correlation_matrix(self, method: str = "pearson") -> pd.DataFrame:
+    def get_correlation_matrix(self, method: str = "pearson", lag: int = 0, lag_column: str = None) -> pd.DataFrame:
         """
         Calculate correlation matrix between cleaned weather parameters.
 
         Args:
             method (str): Correlation method ('pearson', 'spearman', 'kendall')
+            lag (str): time lag in hours
 
         Returns:
             pd.DataFrame: Correlation matrix between weather parameters
@@ -130,7 +131,13 @@ class WeatherAnalyzer:
         logger.info("Calculating correlation matrix using %s method", method)
 
         # Use cleaned/filled data for correlation analysis
-        df_clean = self.df[["temperature_c_filled", "humidity_percent_filled", "air_pressure_hpa_filled"]]
+        cols = ["temperature_c_filled", "humidity_percent_filled", "air_pressure_hpa_filled"]
+        df_clean = self.df[cols].copy()
+        if lag != 0:
+            for col in cols:
+                if col != lag_column:
+                    df_clean[col] = df_clean[col].shift(lag)
+
         corr_matrix = df_clean.corr(method=method)
 
         logger.info("Correlation matrix calculated successfully")
@@ -932,3 +939,4 @@ if __name__ == "__main__":
     trends2 = weather_analyzer.get_trends("air_pressure_hpa")
     mov_avg = weather_analyzer.calculate_moving_averages("temperature_c_filled")
     corr_matrix = weather_analyzer.get_correlation_matrix("pearson")
+    corr_matrix2 = weather_analyzer.get_correlation_matrix("pearson", lag = 16, lag_column="temperature_c_filled")

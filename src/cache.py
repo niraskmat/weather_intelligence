@@ -6,4 +6,4 @@ settings = get_settings()
 # otherwise None
 cache_dir = ".joblib_cache" if settings.CACHE_RESULTS else None
 # Initialize joblib Memory object for function result caching
-memory = Memory(location=cache_dir, verbose=10)
+memory = Memory(location=cache_dir, verbose=1)

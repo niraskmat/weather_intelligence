@@ -112,7 +112,7 @@ class VisualizationEngine(WeatherAnalyzer):
             logger.error(f"Failed to generate time series plot for {col}: {str(e)}")
             raise
 
-    def correlation(self, method: str = 'pearson') -> str:
+    def correlation(self, method: str = 'pearson', lag: int = 0, lag_column: str = None) -> str:
         """
         Generate a correlation heatmap for all numeric variables in the dataset.
 
@@ -138,7 +138,7 @@ class VisualizationEngine(WeatherAnalyzer):
 
             # Calculate correlation matrix
             logger.debug("Computing correlation matrix")
-            corr_matrix = self.analyzer.get_correlation_matrix(method)
+            corr_matrix = self.analyzer.get_correlation_matrix(method, lag, lag_column)
 
             # Create heatmap
             plt.figure(figsize=(12, 10))
@@ -153,15 +153,15 @@ class VisualizationEngine(WeatherAnalyzer):
                         square=True,
                         cbar_kws={"shrink": 0.8})
 
-            plt.title(f"Correlation Heatmap ({method.capitalize()})",
-                      fontsize=16, fontweight='bold')
+            plt.title(f"Correlation Heatmap ({method.capitalize()}, {lag} hour lag, fixed {lag_column})",
+                      fontsize=14, fontweight='bold')
             plt.tight_layout()
 
             logger.debug("Correlation heatmap generated successfully")
 
             # Convert to base64 image
             img_base64 = self.render_plot_to_base64()
-            logger.info(f"Correlation heatmap completed using {method} method")
+            logger.info(f"Correlation heatmap completed using {method} method, {lag} lag, {lag_column} lag column")
 
             return img_base64
 

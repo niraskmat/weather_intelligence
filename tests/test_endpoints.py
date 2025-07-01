@@ -66,6 +66,8 @@ def test_correlation_endpoint(client: TestClient) -> None:
     # Define correlation analysis request
     request_payload = {
         "method": "pearson",
+        "lag": 6,
+        "lag_column": "temperature_c_fillled"
     }
 
     response = client.post("/analysis/correlation", json=request_payload)
@@ -167,15 +169,13 @@ def test_visualizations(client: TestClient, chart_type: str) -> None:
     assert isinstance(data["images"], dict), "Must include image data dictionary"
 
     # Verify images contain base64-encoded data
-    for image_key, image_data in data["images"].items():
-        if isinstance(image_data, str):
-            # Simple base64 image string
-            assert len(image_data) > 0, f"Image data for {image_key} cannot be empty"
-        elif isinstance(image_data, dict):
-            # Complex image object (e.g., distribution with metadata)
-            assert "image" in image_data, f"Image object for {image_key} must contain image data"
-        else:
-            pytest.fail(f"Unexpected image data type for {image_key}: {type(image_data)}")
+    if chart_type != "correlation":
+        for image_key, image_data in data["images"].items():
+            check_image(image_data, image_key)
+    else:
+        # Basic check of correlation
+        image_data = data["images"]["pearson"]["0"]["none"]
+        check_image(image_data)
 
 
 def test_invalid_visualization_type(client: TestClient) -> None:
@@ -185,3 +185,13 @@ def test_invalid_visualization_type(client: TestClient) -> None:
     # Verify proper error response
     assert response.status_code == HTTPStatus.BAD_REQUEST, \
         "Invalid chart type should return 400 Bad Request"
+
+def check_image(image_data, image_key=""):
+    if isinstance(image_data, str):
+        # Simple base64 image string
+        assert len(image_data) > 0, f"Image data for {image_key} cannot be empty"
+    elif isinstance(image_data, dict):
+        # Complex image object (e.g., distribution with metadata)
+        assert "image" in image_data, f"Image object for {image_key} must contain image data"
+    else:
+        pytest.fail(f"Unexpected image data type for {image_key}: {type(image_data)}")

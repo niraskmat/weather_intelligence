@@ -145,16 +145,24 @@ async def get_visualization(
 
             # Generate correlation matrix for each statistical method
             for method in CORRELATION_METHODS:
-                logger.debug(f"Creating correlation heatmap using method: {method}")
-                try:
-                    image_b64: str = viz_engine.correlation(method)
-                    plots["images"][method] = image_b64
-                    logger.debug(f"Successfully generated correlation heatmap for {method}")
-                except Exception as e:
-                    logger.error(f"Failed to generate correlation heatmap for {method}: {str(e)}")
-                    raise
+                plots["images"][method] = {}
+                for lag in [0, 6, 12, 24]:
+                    plots["images"][method][lag] = {}
+                    if lag != 0:
+                        lag_columns = FILLED_PARAMETERS
+                    else:
+                        lag_columns = ["none"]
+                    for lag_column in lag_columns:
+                        logger.debug(f"Creating correlation heatmap using method: {method}")
+                        try:
+                            image_b64: str = viz_engine.correlation(method, lag, lag_column)
+                            plots["images"][method][lag][lag_column] = image_b64
+                            logger.debug(f"Successfully generated correlation heatmap for {method} with lag {lag} and fixed {lag_column}")
+                        except Exception as e:
+                            logger.error(f"Failed to generate correlation heatmap for {method}, {lag}, {lag_column}: {str(e)}")
+                            raise
 
-            logger.info(f"Generated {len(plots['images'])} correlation heatmaps successfully")
+            logger.info(f"Generated correlation heatmaps successfully")
             return CorrelationMatrixVisualizationResponse(**plots)
 
         elif chart_type == 'distribution':

@@ -41,12 +41,10 @@ class AnomalyMethod(str, Enum):
     - MAD: Median Absolute Deviation (robust to outliers)
     - ZSCORE: Z-score method (assumes normal distribution)
     - IQR: Interquartile Range method (quartile-based)
-    - ISOLATION: Isolation Forest algorithm (machine learning approach)
     """
     MAD = "mad"
     ZSCORE = "z_score"
-    #IQR = "iqr"
-    #ISOLATION = "isolation"
+    IQR = "iqr"
 
 
 class ParameterType(str, Enum):
@@ -347,18 +345,27 @@ class CorrelationRequest(BaseModel):
     """
     Request parameters for correlation analysis between environmental variables.
 
-    Allows selection of different correlation methods depending on data
+    Allows selection of different correlation methods and time lag compared to a specified variable
     distribution assumptions and analysis requirements.
     """
     method: CorrelationMethod = Field(
         default=CorrelationMethod.PEARSON,
         description="Statistical correlation method to use"
     )
-
+    lag: int = Field(
+        default=0,
+        description="Lag in hours"
+    )
+    lag_column: str = Field(
+        default=None,
+        description="variable to fix while lagging other"
+    )
     class ConfigDict:
         json_schema_extra = {
             "example": {
-                "method": "pearson"
+                "method": "pearson",
+                "lag": 0,
+                "lag_column": "none"
             },
             "examples": {
                 "pearson_correlation": {
@@ -367,9 +374,9 @@ class CorrelationRequest(BaseModel):
                     "value": {"method": "pearson"}
                 },
                 "spearman_correlation": {
-                    "summary": "Spearman rank correlation",
+                    "summary": "Spearman rank correlation with time lag",
                     "description": "Non-parametric correlation robust to outliers",
-                    "value": {"method": "spearman"}
+                    "value": {"method": "spearman", "lag": 6, "lag_column": "temperature_c_filled"}
                 },
                 "kendall_correlation": {
                     "summary": "Kendall tau correlation",
@@ -568,6 +575,8 @@ class CorrelationResponse(BaseModel):
         description="Pairwise correlations between all variables"
     )
     method_used: str = Field(..., description="Correlation method that was applied")
+    lag: int = Field(..., description="Lag in hours used")
+    lag_column: str = Field(..., description="fixed variable")
 
     class ConfigDict:
         json_schema_extra = {
@@ -589,7 +598,9 @@ class CorrelationResponse(BaseModel):
                         "correlation": -0.12
                     }
                 ],
-                "method_used": "pearson"
+                "method_used": "pearson",
+                "lag": "6",
+                "lag_column": "temperature_c_filled"
             }
         }
 
@@ -727,11 +738,11 @@ class CorrelationMatrixVisualizationResponse(BaseVisualizationResponse):
     """
     Correlation matrix heatmap visualization response.
 
-    Contains correlation heatmaps for different correlation methods,
+    Contains correlation heatmaps for different correlation methods and lags
     showing relationships between environmental parameters.
     """
     chart_type: Literal[VisualizationType.CORRELATION] = VisualizationType.CORRELATION
-    images: Dict[str, str] = Field(
+    images: Dict[str, Dict[int, Dict[str, str]]] = Field(
         ...,
         description="Base64-encoded PNG heatmaps keyed by correlation method"
     )
@@ -741,9 +752,26 @@ class CorrelationMatrixVisualizationResponse(BaseVisualizationResponse):
             "example": {
                 "chart_type": "correlation",
                 "images": {
-                    "pearson": "iVBORw0KGgoAAAANSUhEUgAA...",
-                    "spearman": "iVBORw0KGgoAAAANSUhEUgAA...",
-                    "kendall": "iVBORw0KGgoAAAANSUhEUgAA..."
+                    "pearson": {
+                        "0": {
+                            "none": "iVBORw0KGgoAAAANSUhEUgAA..."
+                        }
+                    },
+                    "spearman": {
+                        "0": {
+                            "none": "iVBORw0KGgoAAAANSUhEUgAA..."
+                        }
+                    },
+                    "kendall": {
+                        "0": {
+                            "none": "iVBORw0KGgoAAAANSUhEUgAA..."
+                        },
+                        "6": {
+                            "temperature_c_filled": "iVBORw0KGgoAAAANSUhEUgAA...",
+                            "humidity_percent_filled": "iVBORw0KGgoAAAANSUhEUgAA...",
+                            "air_pressure_hpa_filled": "iVBORw0KGgoAAAANSUhEUgAA..."
+                        }
+                    }
                 }
             }
         }

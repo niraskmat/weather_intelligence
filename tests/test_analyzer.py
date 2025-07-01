@@ -40,13 +40,14 @@ def test_get_anomalies(sample_dataframe: pd.DataFrame, method: str) -> None:
     # Verify threshold is reasonable
     assert threshold > 0, "Threshold should be positive"
 
-
-def test_correlation_matrix(sample_dataframe: pd.DataFrame) -> None:
+@pytest.mark.parametrize("lag", [0,6,12,24])
+def test_correlation_matrix(sample_dataframe: pd.DataFrame, lag: int) -> None:
     # Initialize analyzer with sample data
     analyzer = WeatherAnalyzer(sample_dataframe)
 
     # Calculate Pearson correlation matrix
-    matrix = analyzer.get_correlation_matrix(method="pearson")
+    matrix = analyzer.get_correlation_matrix(method="pearson", lag=lag,
+                                             lag_column="temperature_c_filled")
 
     # Verify matrix dimensions (3 variables: temperature, humidity, pressure)
     assert matrix.shape == (3, 3), f"Expected 3x3 matrix, got {matrix.shape}"
