@@ -317,16 +317,6 @@ Based on the synthetic temperate climate dataset (8,760 hourly measurements - 1 
 There is enough to deal with in the previous section. But I have made some more analysis on anomalies including a probability plot and a plot of sorted anomaly scores which would help adjusting anomaly detection. I have also made some plots for expecting imputation quality which could be served to the user.
 But time is up!
 
-## 🛠️ Development
-
-### Code Quality Standards
-- **Type hints**: Full static typing with mypy compatibility
-- **Documentation**: Comprehensive docstrings for all public methods
-- **Error handling**: Defensive programming with informative error messages
-- **Modularity**: Clear separation of concerns between components
-
-
-
 ---
 
 **Author**: Nicolai Rask Mathiesen  
