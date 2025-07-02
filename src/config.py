@@ -26,7 +26,7 @@ class Settings(BaseSettings):
 
     class Config:
         # Load environment variables from .env file located one directory up
-        env_file = "../.env"
+        env_file = ".env"
         env_file_encoding = 'utf-8'
         # Environment variables take precedence over .env file values
         # Field names must match environment variable names exactly

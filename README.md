@@ -123,7 +123,7 @@ Create a `.env` file in the project root:
 ```env
 LOG_LEVEL=INFO
 DATA_SEED=42
-CACHE_RESULTS=true
+CACHE_RESULTS=True
 ```
 
 ### Running the Application
@@ -262,7 +262,7 @@ Based on the synthetic temperate climate dataset (8,760 hourly measurements - 1 
 ## 🔧 Technical Implementation Details
 
 ### Performance Optimizations
-- **Joblib caching**: Expensive STL decompositions cached to disk
+- **Joblib caching**: Expensive STL decompositions and distribution fitting cached to disk. More methods could benefit but this shows the idea.
 - **Async FastAPI**: Non-blocking request handling
 - **Efficient data structures**: NumPy arrays and Pandas dataframes for numerical computations
 - **Memory management**: Automatic matplotlib figure cleanup
@@ -295,6 +295,8 @@ Based on the synthetic temperate climate dataset (8,760 hourly measurements - 1 
 - **Memory usage**: Full dataset loaded into memory (suitable for hourly yearly data)
 - **Real-time processing**: Not optimized for streaming data
 - **Performance**: Most methods are implemented with use of optimized methods through scipy, numpy, etc. but we still might run into performance issues in some scenarios. Particularly if the dataset is larger, e.g. if we 10 years with minute resolution (factor 600) - we would need to optimize or change to less demanding methods. 
+- **Endpoint caching**: is not implemented. For production it would be beneficial on visulization and some analysis endpoints - could be done with Redis for multi instance support. 
+- **Multi instance caching**: The current joblib caching doesn't support multi instance caching.
 
 #### **Scientific Limitations**
 - **Missing data**: Long gaps (>24h) may have reduced imputation accuracy
@@ -309,7 +311,7 @@ Based on the synthetic temperate climate dataset (8,760 hourly measurements - 1 
 - Only Fourier Analysis was implemented from the advanced statistics - lack of time to do more
 - Analysis_windows_days was not implemented - I am not sure how it was supposed to work
 - No use of the generator script, the API is depending on loading the pre-generated data.
-- The API endpoint support asynchronous behaviour but none of the underlying analysis functions support async.
+- The API endpoints support asynchronous behaviour but none of the underlying analysis functions support async.
 
 ### Future Enhancements
 There is enough to deal with in the previous section. But I have made some more analysis on anomalies including a probability plot and a plot of sorted anomaly scores which would help adjusting anomaly detection. I have also made some plots for expecting imputation quality which could be served to the user.
