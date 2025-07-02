@@ -24,7 +24,7 @@ A scientific data analysis pipeline for environmental sensor data with REST API 
 - Uses 99.84th percentile threshold by default for MAD and Z-score (assuming we know the sensor have an expected 0.16% miss-reading rate)
 
 #### **Missing Data Reconstruction**
-Sophisticated imputation pipeline:
+Imputation pipeline:
 1. Temporal interpolation of cleaned data
 2. STL decomposition of interpolated series
 3. Signal reconstruction using trend + seasonal components
