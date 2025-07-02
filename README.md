@@ -314,7 +314,7 @@ Based on the synthetic temperate climate dataset (8,760 hourly measurements - 1 
 - The API endpoints support asynchronous behaviour but none of the underlying analysis functions support async.
 
 ### Future Enhancements
-There is enough to deal with in the previous section. But I have made some more analysis on anomalies including a probability plot and a plot of sorted anomaly scores which would help adjusting anomaly detection. I have also made some plots for expecting imputation quality which could be served to the user.
+There is enough to deal with in the previous section. But I have made some more analysis on anomalies including a probability plot and a plot of sorted anomaly scores which would help adjust anomaly detection. I have also made some plots for inspecting imputation quality which could be served to the user.
 But time is up!
 
 ---
