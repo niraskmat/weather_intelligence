@@ -1,27 +1,27 @@
 # Environmental Data Intelligence Platform
 
-A comprehensive scientific data analysis pipeline for environmental sensor data with REST API interface, implementing advanced statistical analysis, time series decomposition, anomaly detection, and data visualization capabilities.
+A scientific data analysis pipeline for environmental sensor data with REST API interface, implementing advanced statistical analysis, time series decomposition, anomaly detection, and data visualization capabilities.
 
 ## 🔬 Scientific Approach
 
 ### Statistical Methods Used
 
-This platform implements a comprehensive suite of scientific analysis methods for environmental data:
+#### **Fourier Analysis**
+- Using FFT, peaks in the frequency spectrum are identified and converted to periods which are later used in the decomposition.   
 
 #### **Time Series Decomposition**
 - **STL (Seasonal and Trend decomposition using Loess)**: For single seasonal patterns
-- **MSTL (Multiple Seasonal-Trend decomposition using Loess)**: For complex multi-seasonal patterns
+- **MSTL (Multiple Seasonal-Trend decomposition using Loess)**: For multi-seasonal patterns, i.e. if more than one period is detected in the Fourier Analysis
 - Automatically detects and quantifies:
-  - Daily temperature cycles (24-hour periods)
-  - Weekly weather patterns (168-hour periods)  
-  - Seasonal variations (yearly cycles)
-  - Long-term trends and residual noise
+  - Cycles (24-hour, 48-hour, and 168-hour periods) 
+  - Seasonal variations (yearly cycles) as the trend
+  - Residual noise
 
 #### **Anomaly Detection**
-- **MAD (Median Absolute Deviation)**: Robust to outliers, uses 99.84th percentile threshold
+- **MAD (Median Absolute Deviation)**: Robust to outliers
 - **Z-Score Method**: Standard statistical approach for normally distributed data
-- **Isolation Forest**: Advanced ML-based anomaly detection (configurable)
 - **IQR Method**: Interquartile range-based outlier detection
+- Uses 99.84th percentile threshold by default for MAD and Z-score (assuming we know the sensor have an expected 0.16% miss-reading rate)
 
 #### **Missing Data Reconstruction**
 Sophisticated imputation pipeline:
@@ -103,8 +103,8 @@ Extends WeatherAnalyzer for visualization:
 
 1. **Clone the Repository**
 ```bash
-git clone <repository-url>
-cd environmental-data-intelligence-platform
+git clone https://github.com/niraskmat/weather_intelligence.git
+cd weather_intelligence
 ```
 
 2. **Create Virtual Environment**
@@ -118,13 +118,7 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-4. **Generate Sample Data**
-```bash
-cd src
-python data_generator.py
-```
-
-5. **Configure Environment** (Optional)
+4. **Configure Environment** (Optional)
 Create a `.env` file in the project root:
 ```env
 LOG_LEVEL=INFO
@@ -136,13 +130,19 @@ CACHE_RESULTS=true
 
 #### Development Mode
 ```bash
-cd src
-python main.py
+export PYTHONPATH=.
+python src/api/main.py
+```
+
+### Testing
+```bash
+# Run all tests
+pytest
 ```
 
 #### Production Mode with Uvicorn
 ```bash
-uvicorn src.main:app --host 0.0.0.0 --port 8000
+uvicorn src.api.main:app --host 0.0.0.0 --port 8000
 ```
 
 #### Docker Deployment
@@ -173,7 +173,7 @@ Returns system health status and component readiness.
 ```http
 GET /data/summary
 ```
-Comprehensive dataset statistics and metadata.
+Dataset statistics and metadata.
 
 ```http
 GET /data/timeseries?start_date=2024-01-01&end_date=2024-01-31&parameter=temperature_c
@@ -181,15 +181,18 @@ GET /data/timeseries?start_date=2024-01-01&end_date=2024-01-31&parameter=tempera
 Filtered time series data with optional date range and parameter selection.
 
 #### Statistical Analysis
+Get correlation matrix with or without time lag (in hours). For no time lag set lag to 0.
 ```http
 POST /analysis/correlation
 Content-Type: application/json
 
 {
-  "method": "pearson"
+  "method": "pearson",
+  "lag": 6,
+  "lag_column": "temperature_c_filled" 
 }
 ```
-
+Get anomalies for chosen parameters using different methods and specified thresholds. By default it will use mad, auto set thresholds and return results for all three variables.
 ```http
 POST /analysis/anomalies
 Content-Type: application/json
@@ -202,7 +205,7 @@ Content-Type: application/json
   "parameters": ["temperature_c", "humidity_percent"]
 }
 ```
-
+Get trends for temperature_c, humidity_percent, or air_pressure_hpa. returns comprehensive analysis of cycles and seasonal extremes.
 ```http
 GET /analysis/trends/temperature_c
 ```
@@ -246,35 +249,22 @@ visualization = response.json()
 
 ### Sample Insights from Generated Data
 
-Based on the synthetic temperate climate dataset (8,760 hourly measurements):
+Based on the synthetic temperate climate dataset (8,760 hourly measurements - 1 year):
 
-#### **Temporal Patterns Detected**
-- **Daily Temperature Cycle**: Clear 24-hour pattern with peaks at ~15:00 and valleys at ~06:00
-- **Seasonal Variation**: 15°C amplitude between summer and winter temperatures
-- **Humidity Anti-correlation**: Strong negative correlation with temperature (-0.65 Pearson)
-- **Pressure Cycles**: Multi-day weather system variations (48-hour and weekly patterns)
-
-#### **Anomaly Detection Results**
-- **Temperature anomalies**: 0.5% of data (sensor spikes ±20-40°C from normal)
-- **Humidity anomalies**: Impossible readings >100% or <3%
-- **Pressure anomalies**: Extreme deviations ±50-100 hPa from normal
-
-#### **Data Quality Assessment**
-- **Completeness**: 97.8% complete data after simulated sensor outages
-- **Missing data**: Successfully imputed using STL-based reconstruction
-- **Seasonal extremes**: Winter min: -15.3°C, Summer max: 35.7°C
-
-#### **Distribution Analysis**
-- **Temperature**: Best fit to normal distribution (temperate climate)
-- **Humidity**: Beta distribution (bounded 0-100%)
-- **Pressure**: Normal distribution around 1013.25 hPa
+#### **Patterns Detected**
+- **Daily Temperature Cycle**: Clear 24-hour pattern with peaks at ~12:00 and valleys at ~00:00
+- **Daily Temperature difference**: The decomposed daily cycle shows a 19°C mean difference between day and night 
+- **Seasonal Variation**: 33°C amplitude between summer and winter temperatures (looking at the yearly trend)
+- **Humidity Anti-correlation**: Strong negative correlation with a 12-hour lag to temperature (-0.94 Spearman)
+- **Pressure Cycles**: Multi-day weather system variations (48-hour and 168-hour (weekly) patterns)
+- **Pressure Days**: Pressure is highest around Tuesday evening and lowest around Saturday morning...
 
 ## 🔧 Technical Implementation Details
 
 ### Performance Optimizations
 - **Joblib caching**: Expensive STL decompositions cached to disk
 - **Async FastAPI**: Non-blocking request handling
-- **Efficient data structures**: NumPy arrays for numerical computations
+- **Efficient data structures**: NumPy arrays and Pandas dataframes for numerical computations
 - **Memory management**: Automatic matplotlib figure cleanup
 
 ### Error Handling
@@ -293,15 +283,9 @@ Based on the synthetic temperate climate dataset (8,760 hourly measurements):
 
 ### Assumptions Made
 
-#### **Data Generation**
-- **Temperate climate simulation**: Moderate seasonal variation, winter humidity peaks
-- **Sensor characteristics**: Gaussian noise with σ=2.5°C for temperature
-- **Missing data patterns**: Random 2% + periodic outages (realistic sensor behavior)
-- **Anomaly injection**: 0.5% of data with sensor malfunction signatures
-
 #### **Statistical Methods**
 - **STL decomposition**: Assumes additive seasonal components
-- **Anomaly thresholds**: 99.84th percentile (≈3σ equivalent) for balance
+- **Automatic Anomaly thresholds**: 99.84th percentile equivalent to 0.16% sensor error rate
 - **Distribution fitting**: Limited to common meteorological distributions
 - **Circular statistics**: Assumes unimodal cyclical patterns
 
@@ -310,19 +294,26 @@ Based on the synthetic temperate climate dataset (8,760 hourly measurements):
 #### **Technical Constraints**
 - **Memory usage**: Full dataset loaded into memory (suitable for hourly yearly data)
 - **Real-time processing**: Not optimized for streaming data
-- **Geographic scope**: Single-location analysis (no spatial correlation)
+- **Performance**: Most methods are implemented with use of optimized methods through scipy, numpy, etc. but we still might run into performance issues in some scenarios. Particularly if the dataset is larger, e.g. if we 10 years with minute resolution (factor 600) - we would need to optimize or change to less demanding methods. 
 
 #### **Scientific Limitations**
-- **Model complexity**: Linear trend assumption in STL decomposition
-- **Correlation analysis**: Does not imply causation
 - **Missing data**: Long gaps (>24h) may have reduced imputation accuracy
-- **Anomaly detection**: May miss novel anomaly types not in training patterns
+- **STL/MSTL decomposition**: 
+  - Not suitable for streaming scenarios - would like need another method if we were working with live data from a sensor.
+  - Might be too slow for some scenarios with more data
+  - Right now the MSTL is hardcoded to two cycles - needs to be generalized 
+- Assumes hourly data many places, would need adaptation to work with different data point intervals
+- Assumes one year worth of data in some places - needs to be generalized
+
+#### **Missing Elements**
+- Only Fourier Analysis was implemented from the advanced statistics - lack of time to do more
+- Analysis_windows_days was not implemented - I am not sure how it was supposed to work
+- No use of the generator script, the API is depending on loading the pre-generated data.
+- The API endpoint support asynchronous behaviour but none of the underlying analysis functions support async.
 
 ### Future Enhancements
-- **Multivariate anomaly detection**: Consider variable interactions
-- **Fourier analysis**: Frequency domain pattern identification
-- **Machine learning integration**: Weather prediction models
-- **Real-time processing**: Streaming analysis capabilities
+There is enough to deal with in the previous section. But I have made some more analysis on anomalies including a probability plot and a plot of sorted anomaly scores which would help adjusting anomaly detection. I have also made some plots for expecting imputation quality which could be served to the user.
+But time is up!
 
 ## 🛠️ Development
 
@@ -332,25 +323,7 @@ Based on the synthetic temperate climate dataset (8,760 hourly measurements):
 - **Error handling**: Defensive programming with informative error messages
 - **Modularity**: Clear separation of concerns between components
 
-### Testing
-```bash
-# Run all tests
-pytest tests/ -v
 
-# Run with coverage
-pytest tests/ --cov=src --cov-report=html
-```
-
-### Contributing
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open Pull Request
-
-## 📄 License
-
-This project is developed as part of the PhaseTree technical assessment.
 
 ---
 
